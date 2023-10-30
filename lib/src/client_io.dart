@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math';
+import 'package:appwrite/appwrite.dart';
 import 'package:appwrite/src/secureStorage.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -22,19 +23,21 @@ import 'upload_progress.dart';
 ClientBase createClient({
   required String endPoint,
   required bool selfSigned,
+  String? cookiePreffix,
 }) =>
     ClientIO(
-      endPoint: endPoint,
-      selfSigned: selfSigned,
-    );
+        endPoint: endPoint,
+        selfSigned: selfSigned,
+        cookiePreffix: cookiePreffix);
 
 class ClientIO extends ClientBase with ClientMixin {
-  static const int CHUNK_SIZE = 5*1024*1024;
+  static const int CHUNK_SIZE = 5 * 1024 * 1024;
   String _endPoint;
   Map<String, String>? _headers;
   @override
   late Map<String, String> config;
   bool selfSigned;
+  String? cookiePreffix;
   bool _initialized = false;
   String? _endPointRealtime;
   late http.Client _httpClient;
@@ -50,6 +53,7 @@ class ClientIO extends ClientBase with ClientMixin {
   ClientIO({
     String endPoint = 'https://appwrite.io/v1',
     this.selfSigned = false,
+    this.cookiePreffix = null,
   }) : _endPoint = endPoint {
     _nativeClient = HttpClient()
       ..badCertificateCallback =
@@ -61,7 +65,7 @@ class ClientIO extends ClientBase with ClientMixin {
     _headers = {
       'content-type': 'application/json',
       'x-sdk-version': 'appwrite:flutter:6.0.0',
-      'X-Appwrite-Response-Format' : '0.15.0',
+      'X-Appwrite-Response-Format': '0.15.0',
     };
 
     config = {};
@@ -82,26 +86,28 @@ class ClientIO extends ClientBase with ClientMixin {
     return dir;
   }
 
-     /// Your project ID
-    @override
-    ClientIO setProject(value) {
-        config['project'] = value;
-        addHeader('X-Appwrite-Project', value);
-        return this;
-    }
-     /// Your secret JSON Web Token
-    @override
-    ClientIO setJWT(value) {
-        config['jWT'] = value;
-        addHeader('X-Appwrite-JWT', value);
-        return this;
-    }
-    @override
-    ClientIO setLocale(value) {
-        config['locale'] = value;
-        addHeader('X-Appwrite-Locale', value);
-        return this;
-    }
+  /// Your project ID
+  @override
+  ClientIO setProject(value) {
+    config['project'] = value;
+    addHeader('X-Appwrite-Project', value);
+    return this;
+  }
+
+  /// Your secret JSON Web Token
+  @override
+  ClientIO setJWT(value) {
+    config['jWT'] = value;
+    addHeader('X-Appwrite-JWT', value);
+    return this;
+  }
+
+  @override
+  ClientIO setLocale(value) {
+    config['locale'] = value;
+    addHeader('X-Appwrite-Locale', value);
+    return this;
+  }
 
   @override
   ClientIO setSelfSigned({bool status = true}) {
@@ -135,7 +141,11 @@ class ClientIO extends ClientBase with ClientMixin {
 
   Future init() async {
     // if web skip cookie implementation and origin header as those are automatically handled by browsers
-    _cookieJar = PersistCookieJar(storage: SecureStorage());
+    final Directory cookieDir = await _getCookiePath();
+    _cookieJar = PersistCookieJar(
+        storage: SecureStorage(
+            cookiePreffix: cookiePreffix,
+            fileFailoverDirectory: cookieDir.path));
     _interceptors.add(CookieManager(_cookieJar));
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
     addHeader('Origin',
@@ -171,8 +181,8 @@ class ClientIO extends ClientBase with ClientMixin {
       debugPrint('Error getting device info: $e');
       device = Platform.operatingSystem;
     }
-    addHeader(
-        'user-agent', '${packageInfo.packageName}/${packageInfo.version} $device');
+    addHeader('user-agent',
+        '${packageInfo.packageName}/${packageInfo.version} $device');
 
     _initialized = true;
   }
@@ -273,14 +283,14 @@ class ClientIO extends ClientBase with ClientMixin {
     while (offset < size) {
       var chunk;
       if (file.bytes != null) {
-        final end = min(offset + CHUNK_SIZE-1, size-1);
+        final end = min(offset + CHUNK_SIZE - 1, size - 1);
         chunk = file.bytes!.getRange(offset, end).toList();
       } else {
         raf!.setPositionSync(offset);
         chunk = raf.readSync(CHUNK_SIZE);
       }
-      params[paramName] =
-          http.MultipartFile.fromBytes(paramName, chunk, filename: file.filename);
+      params[paramName] = http.MultipartFile.fromBytes(paramName, chunk,
+          filename: file.filename);
       headers['content-range'] =
           'bytes $offset-${min<int>(((offset + CHUNK_SIZE) - 1), size)}/$size';
       res = await call(HttpMethod.post,
