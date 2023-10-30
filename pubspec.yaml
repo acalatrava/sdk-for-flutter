@@ -17,6 +17,10 @@ dependencies:
   package_info_plus: 1.4.2
   path_provider: ^2.0.9
   web_socket_channel: ^2.2.0
+  flutter_keychain:
+    git:
+      url: https://github.com/acalatrava/flutter_keychain
+      ref: 46891ef8d9e5e2e377fb8a20a524961130d54517
 
 dev_dependencies:
   flutter_lints: ^1.0.4

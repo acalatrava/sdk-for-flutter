@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math';
+import 'package:appwrite/src/secureStorage.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:http/http.dart' as http;
@@ -134,8 +135,7 @@ class ClientIO extends ClientBase with ClientMixin {
 
   Future init() async {
     // if web skip cookie implementation and origin header as those are automatically handled by browsers
-    final Directory cookieDir = await _getCookiePath();
-    _cookieJar = PersistCookieJar(storage: FileStorage(cookieDir.path));
+    _cookieJar = PersistCookieJar(storage: SecureStorage());
     _interceptors.add(CookieManager(_cookieJar));
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
     addHeader('Origin',
